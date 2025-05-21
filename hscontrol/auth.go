@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -221,7 +222,12 @@ func (h *Headscale) handleRegisterWithAuthKey(
 	node, err := db.Write(h.db.DB, func(tx *gorm.DB) (*types.Node, error) {
 		node, err := db.RegisterNode(tx,
 			nodeToRegister,
-			ipv4, ipv6,
+			[]*netip.Addr{
+				ipv4,
+			},
+			[]*netip.Addr{
+				ipv6,
+			},
 		)
 		if err != nil {
 			return nil, fmt.Errorf("registering node: %w", err)

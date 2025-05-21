@@ -62,8 +62,8 @@ type Node struct {
 
 	Hostinfo *tailcfg.Hostinfo `gorm:"column:host_info;serializer:json"`
 
-	IPv4 *netip.Addr `gorm:"column:ipv4;serializer:text"`
-	IPv6 *netip.Addr `gorm:"column:ipv6;serializer:text"`
+	IPv4s []*netip.Addr `gorm:"column:ipv4;serializer:json"`
+	IPv6s []*netip.Addr `gorm:"column:ipv6;serializer:json"`
 
 	// Hostname represents the name given by the Tailscale
 	// client during registration
@@ -141,12 +141,27 @@ func (node *Node) IsEphemeral() bool {
 func (node *Node) IPs() []netip.Addr {
 	var ret []netip.Addr
 
-	if node.IPv4 != nil {
-		ret = append(ret, *node.IPv4)
-	}
+	//if node.IPv4 != nil {
+	//	ret = append(ret, *node.IPv4)
+	//}
+	//
+	//if node.IPv6 != nil {
+	//	ret = append(ret, *node.IPv6)
+	//}
 
-	if node.IPv6 != nil {
-		ret = append(ret, *node.IPv6)
+	if len(node.IPv4s) > 0 {
+		for _, ip := range node.IPv4s {
+			if ip != nil {
+				ret = append(ret, *ip)
+			}
+		}
+	}
+	if len(node.IPv6s) > 0 {
+		for _, ip := range node.IPv6s {
+			if ip != nil {
+				ret = append(ret, *ip)
+			}
+		}
 	}
 
 	return ret
@@ -305,13 +320,19 @@ func (nodes Nodes) FilterByIP(ip netip.Addr) Nodes {
 	var found Nodes
 
 	for _, node := range nodes {
-		if node.IPv4 != nil && ip == *node.IPv4 {
-			found = append(found, node)
-			continue
-		}
-
-		if node.IPv6 != nil && ip == *node.IPv6 {
-			found = append(found, node)
+		//if node.IPv4 != nil && ip == *node.IPv4 {
+		//	found = append(found, node)
+		//	continue
+		//}
+		//
+		//if node.IPv6 != nil && ip == *node.IPv6 {
+		//	found = append(found, node)
+		//}
+		for _, nodeIP := range append(node.IPv4s, node.IPv6s...) {
+			if nodeIP != nil && ip == *nodeIP {
+				found = append(found, node)
+				break
+			}
 		}
 	}
 

@@ -258,7 +258,13 @@ func (api headscaleV1APIServer) RegisterNode(
 		types.UserID(user.ID),
 		nil,
 		util.RegisterMethodCLI,
-		ipv4, ipv6,
+		[]*netip.Addr{
+			ipv4,
+		},
+
+		[]*netip.Addr{
+			ipv6,
+		},
 	)
 	if err != nil {
 		return nil, err

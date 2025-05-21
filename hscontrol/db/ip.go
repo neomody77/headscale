@@ -3,6 +3,7 @@ package db
 import (
 	"crypto/rand"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -106,12 +107,26 @@ func NewIPAllocator(
 	// and add them to the used IP set.
 	for _, addrStr := range append(v4s, v6s...) {
 		if addrStr.Valid {
-			addr, err := netip.ParseAddr(addrStr.String)
-			if err != nil {
-				return nil, fmt.Errorf("parsing IP address from database: %w", err)
+			fmt.Println("addrStr:", addrStr.String)
+			var ipStrs []string
+			if err := json.Unmarshal([]byte(addrStr.String), &ipStrs); err != nil {
+				panic(err)
 			}
+			fmt.Println("ips:", ipStrs)
+			for _, ipStr := range ipStrs {
+				addr, err := netip.ParseAddr(ipStr)
+				if err != nil {
+					return nil, fmt.Errorf("parsing IP address from database: %w", err)
+				}
 
-			ips.Add(addr)
+				ips.Add(addr)
+			}
+			//addr, err := netip.ParseAddr(addrStr.String)
+			//if err != nil {
+			//	return nil, fmt.Errorf("parsing IP address from database: %w", err)
+			//}
+			//
+			//ips.Add(addr)
 		}
 	}
 
@@ -285,40 +300,48 @@ func (db *HSDatabase) BackfillNodeIPs(i *IPAllocator) ([]string, error) {
 
 			changed := false
 			// IPv4 prefix is set, but node ip is missing, alloc
-			if i.prefix4 != nil && node.IPv4 == nil {
+			if i.prefix4 != nil && len(node.IPv4s) == 0 {
 				ret4, err := i.nextLocked(i.prev4, i.prefix4)
 				if err != nil {
 					return fmt.Errorf("failed to allocate ipv4 for node(%d): %w", node.ID, err)
 				}
 
-				node.IPv4 = ret4
+				//node.IPv4 = ret4
+				node.IPv4s = append(node.IPv4s, ret4)
 				changed = true
 				ret = append(ret, fmt.Sprintf("assigned IPv4 %q to Node(%d) %q", ret4.String(), node.ID, node.Hostname))
 			}
 
 			// IPv6 prefix is set, but node ip is missing, alloc
-			if i.prefix6 != nil && node.IPv6 == nil {
+			if i.prefix6 != nil && len(node.IPv6s) == 0 {
 				ret6, err := i.nextLocked(i.prev6, i.prefix6)
 				if err != nil {
 					return fmt.Errorf("failed to allocate ipv6 for node(%d): %w", node.ID, err)
 				}
 
-				node.IPv6 = ret6
+				//node.IPv6 = ret6
+				node.IPv6s = append(node.IPv6s, ret6)
 				changed = true
 				ret = append(ret, fmt.Sprintf("assigned IPv6 %q to Node(%d) %q", ret6.String(), node.ID, node.Hostname))
 			}
 
 			// IPv4 prefix is not set, but node has IP, remove
-			if i.prefix4 == nil && node.IPv4 != nil {
-				ret = append(ret, fmt.Sprintf("removing IPv4 %q from Node(%d) %q", node.IPv4.String(), node.ID, node.Hostname))
-				node.IPv4 = nil
+			if i.prefix4 == nil && len(node.IPv4s) != 0 {
+				for _, ip := range node.IPv4s {
+					ret = append(ret, fmt.Sprintf("removing IPv4 %q from Node(%d) %q", ip.String(), node.ID, node.Hostname))
+				}
+				//node.IPv4 = nil
+				node.IPv4s = []*netip.Addr{}
 				changed = true
 			}
 
 			// IPv6 prefix is not set, but node has IP, remove
-			if i.prefix6 == nil && node.IPv6 != nil {
-				ret = append(ret, fmt.Sprintf("removing IPv6 %q from Node(%d) %q", node.IPv6.String(), node.ID, node.Hostname))
-				node.IPv6 = nil
+			if i.prefix6 == nil && len(node.IPv6s) != 0 {
+				for _, ip := range node.IPv6s {
+					ret = append(ret, fmt.Sprintf("removing IPv6 %q from Node(%d) %q", ip.String(), node.ID, node.Hostname))
+				}
+				//node.IPv6 = nil
+				node.IPv6s = []*netip.Addr{}
 				changed = true
 			}
 

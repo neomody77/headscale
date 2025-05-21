@@ -350,8 +350,8 @@ func (hsdb *HSDatabase) HandleNodeFromAuthPath(
 	userID types.UserID,
 	nodeExpiry *time.Time,
 	registrationMethod string,
-	ipv4 *netip.Addr,
-	ipv6 *netip.Addr,
+	ipv4s []*netip.Addr,
+	ipv6s []*netip.Addr,
 ) (*types.Node, bool, error) {
 	var newNode bool
 	node, err := Write(hsdb.DB, func(tx *gorm.DB) (*types.Node, error) {
@@ -391,7 +391,7 @@ func (hsdb *HSDatabase) HandleNodeFromAuthPath(
 				node, err := RegisterNode(
 					tx,
 					reg.Node,
-					ipv4, ipv6,
+					ipv4s, ipv6s,
 				)
 
 				if err == nil {
@@ -423,14 +423,14 @@ func (hsdb *HSDatabase) HandleNodeFromAuthPath(
 	return node, newNode, err
 }
 
-func (hsdb *HSDatabase) RegisterNode(node types.Node, ipv4 *netip.Addr, ipv6 *netip.Addr) (*types.Node, error) {
+func (hsdb *HSDatabase) RegisterNode(node types.Node, ipv4s []*netip.Addr, ipv6s []*netip.Addr) (*types.Node, error) {
 	return Write(hsdb.DB, func(tx *gorm.DB) (*types.Node, error) {
-		return RegisterNode(tx, node, ipv4, ipv6)
+		return RegisterNode(tx, node, ipv4s, ipv6s)
 	})
 }
 
 // RegisterNode is executed from the CLI to register a new Node using its MachineKey.
-func RegisterNode(tx *gorm.DB, node types.Node, ipv4 *netip.Addr, ipv6 *netip.Addr) (*types.Node, error) {
+func RegisterNode(tx *gorm.DB, node types.Node, ipv4s []*netip.Addr, ipv6s []*netip.Addr) (*types.Node, error) {
 	log.Debug().
 		Str("node", node.Hostname).
 		Str("machine_key", node.MachineKey.ShortString()).
@@ -446,14 +446,14 @@ func RegisterNode(tx *gorm.DB, node types.Node, ipv4 *netip.Addr, ipv6 *netip.Ad
 	if oldNode != nil && oldNode.UserID == node.UserID {
 		node.ID = oldNode.ID
 		node.GivenName = oldNode.GivenName
-		ipv4 = oldNode.IPv4
-		ipv6 = oldNode.IPv6
+		ipv4s = oldNode.IPv4s
+		ipv6s = oldNode.IPv6s
 	}
 
 	// If the node exists and it already has IP(s), we just save it
 	// so we store the node.Expire and node.Nodekey that has been set when
 	// adding it to the registrationCache
-	if node.IPv4 != nil || node.IPv6 != nil {
+	if len(node.IPv4s) != 0 || len(node.IPv6s) != 0 {
 		if err := tx.Save(&node).Error; err != nil {
 			return nil, fmt.Errorf("failed register existing node in the database: %w", err)
 		}
@@ -469,8 +469,8 @@ func RegisterNode(tx *gorm.DB, node types.Node, ipv4 *netip.Addr, ipv6 *netip.Ad
 		return &node, nil
 	}
 
-	node.IPv4 = ipv4
-	node.IPv6 = ipv6
+	node.IPv4s = ipv4s
+	node.IPv6s = ipv6s
 
 	if node.GivenName == "" {
 		givenName, err := ensureUniqueGivenName(tx, node.Hostname)

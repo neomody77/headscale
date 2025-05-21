@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/netip"
 	"slices"
 	"strings"
 	"time"
@@ -514,7 +515,7 @@ func (a *AuthProviderOIDC) handleRegistration(
 		types.UserID(user.ID),
 		&expiry,
 		util.RegisterMethodOIDC,
-		ipv4, ipv6,
+		[]*netip.Addr{ipv4}, []*netip.Addr{ipv6},
 	)
 	if err != nil {
 		return false, fmt.Errorf("could not register node: %w", err)
