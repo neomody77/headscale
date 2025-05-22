@@ -2,16 +2,19 @@ package cli
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
-	"time"
-
 	v1 "github.com/juanfont/headscale/gen/go/headscale/v1"
+	"github.com/juanfont/headscale/hscontrol/db"
+	"github.com/juanfont/headscale/hscontrol/types"
 	"github.com/prometheus/common/model"
 	"github.com/pterm/pterm"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+	"zgo.at/zcache/v2"
 )
 
 const (
@@ -23,14 +26,15 @@ func init() {
 	preauthkeysCmd.PersistentFlags().Uint64P("user", "u", 0, "User identifier (ID)")
 
 	preauthkeysCmd.PersistentFlags().StringP("namespace", "n", "", "User")
-	pakNamespaceFlag := preauthkeysCmd.PersistentFlags().Lookup("namespace")
-	pakNamespaceFlag.Deprecated = deprecateNamespaceMessage
-	pakNamespaceFlag.Hidden = true
+	//pakNamespaceFlag := preauthkeysCmd.PersistentFlags().Lookup("namespace")
+	//pakNamespaceFlag.Deprecated = deprecateNamespaceMessage
+	//pakNamespaceFlag.Hidden = true
 
-	err := preauthkeysCmd.MarkPersistentFlagRequired("user")
-	if err != nil {
-		log.Fatal().Err(err).Msg("")
-	}
+	//err := preauthkeysCmd.MarkPersistentFlagRequired("user")
+	//if err != nil {
+	//	log.Fatal().Err(err).Msg("")
+	//}
+
 	preauthkeysCmd.AddCommand(listPreAuthKeys)
 	preauthkeysCmd.AddCommand(createPreAuthKeyCmd)
 	preauthkeysCmd.AddCommand(expirePreAuthKeyCmd)
@@ -134,6 +138,11 @@ var listPreAuthKeys = &cobra.Command{
 	},
 }
 
+var (
+	registerCacheExpiration = time.Minute * 15
+	registerCacheCleanup    = time.Minute * 20
+)
+
 var createPreAuthKeyCmd = &cobra.Command{
 	Use:     "create",
 	Short:   "Creates a new preauthkey in the specified user",
@@ -144,6 +153,45 @@ var createPreAuthKeyCmd = &cobra.Command{
 		user, err := cmd.Flags().GetUint64("user")
 		if err != nil {
 			ErrorOutput(err, fmt.Sprintf("Error getting user: %s", err), output)
+		}
+
+		if user == 0 {
+			cfg, err := types.LoadServerConfig()
+			if err != nil {
+				ErrorOutput(err, fmt.Sprintf("Error loading config: %s", err), output)
+			}
+
+			registrationCache := zcache.New[types.RegistrationID, types.RegisterNode](
+				registerCacheExpiration,
+				registerCacheCleanup,
+			)
+			dbHandler, err := db.NewHeadscaleDatabase(
+				cfg.Database,
+				cfg.BaseDomain,
+				registrationCache,
+			)
+			defer func(dbHandler *db.HSDatabase) {
+				if dbHandler == nil {
+					return
+				}
+				err := dbHandler.Close()
+				if err != nil {
+					log.Error().Err(err).Msg("Error closing database connection")
+				}
+			}(dbHandler)
+
+			namespace, err := cmd.Flags().GetString("namespace")
+			if err == nil && namespace != "" {
+				userInfo, err := dbHandler.GetUserByName(namespace)
+				if err == nil {
+					user = uint64(userInfo.ID)
+				}
+			}
+		}
+		if user == 0 {
+			_ = cmd.Help()
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", "Error: No user specified")
+			return
 		}
 
 		reusable, _ := cmd.Flags().GetBool("reusable")
