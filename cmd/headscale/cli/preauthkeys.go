@@ -3,18 +3,14 @@ package cli
 import (
 	"fmt"
 	v1 "github.com/juanfont/headscale/gen/go/headscale/v1"
-	"github.com/juanfont/headscale/hscontrol/db"
-	"github.com/juanfont/headscale/hscontrol/types"
 	"github.com/prometheus/common/model"
 	"github.com/pterm/pterm"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"os"
 	"strconv"
 	"strings"
 	"time"
-	"zgo.at/zcache/v2"
 )
 
 const (
@@ -138,11 +134,6 @@ var listPreAuthKeys = &cobra.Command{
 	},
 }
 
-var (
-	registerCacheExpiration = time.Minute * 15
-	registerCacheCleanup    = time.Minute * 20
-)
-
 var createPreAuthKeyCmd = &cobra.Command{
 	Use:     "create",
 	Short:   "Creates a new preauthkey in the specified user",
@@ -155,51 +146,34 @@ var createPreAuthKeyCmd = &cobra.Command{
 			ErrorOutput(err, fmt.Sprintf("Error getting user: %s", err), output)
 		}
 
-		if user == 0 {
-			cfg, err := types.LoadServerConfig()
-			if err != nil {
-				ErrorOutput(err, fmt.Sprintf("Error loading config: %s", err), output)
-			}
+		ctx, client, conn, cancel := newHeadscaleCLIWithConfig()
+		defer cancel()
+		defer conn.Close()
+		log.Trace().Interface("client", client).Msg("Obtained gRPC client")
+		namespace, err := cmd.Flags().GetString("namespace")
 
-			registrationCache := zcache.New[types.RegistrationID, types.RegisterNode](
-				registerCacheExpiration,
-				registerCacheCleanup,
-			)
-			dbHandler, err := db.NewHeadscaleDatabase(
-				cfg.Database,
-				cfg.BaseDomain,
-				registrationCache,
-			)
-			defer func(dbHandler *db.HSDatabase) {
-				if dbHandler == nil {
-					return
-				}
-				err := dbHandler.Close()
-				if err != nil {
-					log.Error().Err(err).Msg("Error closing database connection")
-				}
-			}(dbHandler)
-
-			namespace, err := cmd.Flags().GetString("namespace")
-			if err == nil && namespace != "" {
-				userInfo, err := dbHandler.GetUserByName(namespace)
-				if err == nil {
-					user = uint64(userInfo.ID)
-				}
-			}
-		}
-		if user == 0 {
-			_ = cmd.Help()
-			_, _ = fmt.Fprintf(os.Stderr, "%s\n", "Error: No user specified")
+		users, err := client.ListUsers(ctx, &v1.ListUsersRequest{
+			Name: namespace,
+			Id:   user,
+		})
+		if err != nil {
+			ErrorOutput(err, fmt.Sprintf("Error getting user: %s", err), output)
 			return
 		}
 
+		if len(users.GetUsers()) == 0 {
+			log.Trace().Interface("client", client).Msg("No users found")
+			_ = cmd.Help()
+			return
+		}
+
+		userInfo := users.GetUsers()[0]
 		reusable, _ := cmd.Flags().GetBool("reusable")
 		ephemeral, _ := cmd.Flags().GetBool("ephemeral")
 		tags, _ := cmd.Flags().GetStringSlice("tags")
 
 		request := &v1.CreatePreAuthKeyRequest{
-			User:      user,
+			User:      userInfo.Id,
 			Reusable:  reusable,
 			Ephemeral: ephemeral,
 			AclTags:   tags,
@@ -223,10 +197,6 @@ var createPreAuthKeyCmd = &cobra.Command{
 			Msg("expiration has been set")
 
 		request.Expiration = timestamppb.New(expiration)
-
-		ctx, client, conn, cancel := newHeadscaleCLIWithConfig()
-		defer cancel()
-		defer conn.Close()
 
 		response, err := client.CreatePreAuthKey(ctx, request)
 		if err != nil {

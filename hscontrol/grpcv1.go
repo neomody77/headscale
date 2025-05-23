@@ -242,6 +242,9 @@ func (api headscaleV1APIServer) RegisterNode(
 	if err != nil {
 		return nil, err
 	}
+	_, _ = api.h.db.BackfillNodeIPs(api.h.ipAlloc)
+
+	api.h.ipAlloc, err = db.NewIPAllocator(api.h.db, api.h.cfg.PrefixV4, api.h.cfg.PrefixV6, api.h.cfg.IPAllocation)
 
 	ipv4, ipv6, err := api.h.ipAlloc.Next()
 	if err != nil {
@@ -499,6 +502,21 @@ func (api headscaleV1APIServer) RenameNode(
 		Msg("node renamed")
 
 	return &v1.RenameNodeResponse{Node: node.Proto()}, nil
+}
+
+func (api headscaleV1APIServer) SyncNode(
+	ctx context.Context,
+	request *v1.SyncNodeRequest,
+) (*v1.SyncNodeResponse, error) {
+
+	node, err := api.h.db.GetNodeByID(types.NodeID(request.GetNodeId()))
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = types.NotifyCtx(context.Background(), "node updated", node.Hostname)
+	api.h.nodeNotifier.NotifyByNodeID(ctx, types.UpdatePeerChanged(node.ID), node.ID)
+	return &v1.SyncNodeResponse{Node: node.Proto()}, nil
 }
 
 func (api headscaleV1APIServer) ListNodes(

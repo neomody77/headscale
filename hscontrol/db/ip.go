@@ -107,18 +107,15 @@ func NewIPAllocator(
 	// and add them to the used IP set.
 	for _, addrStr := range append(v4s, v6s...) {
 		if addrStr.Valid {
-			fmt.Println("addrStr:", addrStr.String)
 			var ipStrs []string
 			if err := json.Unmarshal([]byte(addrStr.String), &ipStrs); err != nil {
 				panic(err)
 			}
-			fmt.Println("ips:", ipStrs)
 			for _, ipStr := range ipStrs {
 				addr, err := netip.ParseAddr(ipStr)
 				if err != nil {
 					return nil, fmt.Errorf("parsing IP address from database: %w", err)
 				}
-
 				ips.Add(addr)
 			}
 			//addr, err := netip.ParseAddr(addrStr.String)

@@ -34,6 +34,7 @@ const (
 	HeadscaleService_DeleteNode_FullMethodName        = "/headscale.v1.HeadscaleService/DeleteNode"
 	HeadscaleService_ExpireNode_FullMethodName        = "/headscale.v1.HeadscaleService/ExpireNode"
 	HeadscaleService_RenameNode_FullMethodName        = "/headscale.v1.HeadscaleService/RenameNode"
+	HeadscaleService_SyncNode_FullMethodName          = "/headscale.v1.HeadscaleService/SyncNode"
 	HeadscaleService_ListNodes_FullMethodName         = "/headscale.v1.HeadscaleService/ListNodes"
 	HeadscaleService_MoveNode_FullMethodName          = "/headscale.v1.HeadscaleService/MoveNode"
 	HeadscaleService_BackfillNodeIPs_FullMethodName   = "/headscale.v1.HeadscaleService/BackfillNodeIPs"
@@ -67,6 +68,7 @@ type HeadscaleServiceClient interface {
 	DeleteNode(ctx context.Context, in *DeleteNodeRequest, opts ...grpc.CallOption) (*DeleteNodeResponse, error)
 	ExpireNode(ctx context.Context, in *ExpireNodeRequest, opts ...grpc.CallOption) (*ExpireNodeResponse, error)
 	RenameNode(ctx context.Context, in *RenameNodeRequest, opts ...grpc.CallOption) (*RenameNodeResponse, error)
+	SyncNode(ctx context.Context, in *SyncNodeRequest, opts ...grpc.CallOption) (*SyncNodeResponse, error)
 	ListNodes(ctx context.Context, in *ListNodesRequest, opts ...grpc.CallOption) (*ListNodesResponse, error)
 	MoveNode(ctx context.Context, in *MoveNodeRequest, opts ...grpc.CallOption) (*MoveNodeResponse, error)
 	BackfillNodeIPs(ctx context.Context, in *BackfillNodeIPsRequest, opts ...grpc.CallOption) (*BackfillNodeIPsResponse, error)
@@ -238,6 +240,16 @@ func (c *headscaleServiceClient) RenameNode(ctx context.Context, in *RenameNodeR
 	return out, nil
 }
 
+func (c *headscaleServiceClient) SyncNode(ctx context.Context, in *SyncNodeRequest, opts ...grpc.CallOption) (*SyncNodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SyncNodeResponse)
+	err := c.cc.Invoke(ctx, HeadscaleService_SyncNode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *headscaleServiceClient) ListNodes(ctx context.Context, in *ListNodesRequest, opts ...grpc.CallOption) (*ListNodesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListNodesResponse)
@@ -350,6 +362,7 @@ type HeadscaleServiceServer interface {
 	DeleteNode(context.Context, *DeleteNodeRequest) (*DeleteNodeResponse, error)
 	ExpireNode(context.Context, *ExpireNodeRequest) (*ExpireNodeResponse, error)
 	RenameNode(context.Context, *RenameNodeRequest) (*RenameNodeResponse, error)
+	SyncNode(context.Context, *SyncNodeRequest) (*SyncNodeResponse, error)
 	ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error)
 	MoveNode(context.Context, *MoveNodeRequest) (*MoveNodeResponse, error)
 	BackfillNodeIPs(context.Context, *BackfillNodeIPsRequest) (*BackfillNodeIPsResponse, error)
@@ -415,6 +428,9 @@ func (UnimplementedHeadscaleServiceServer) ExpireNode(context.Context, *ExpireNo
 }
 func (UnimplementedHeadscaleServiceServer) RenameNode(context.Context, *RenameNodeRequest) (*RenameNodeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenameNode not implemented")
+}
+func (UnimplementedHeadscaleServiceServer) SyncNode(context.Context, *SyncNodeRequest) (*SyncNodeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SyncNode not implemented")
 }
 func (UnimplementedHeadscaleServiceServer) ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListNodes not implemented")
@@ -734,6 +750,24 @@ func _HeadscaleService_RenameNode_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HeadscaleService_SyncNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SyncNodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HeadscaleServiceServer).SyncNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HeadscaleService_SyncNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HeadscaleServiceServer).SyncNode(ctx, req.(*SyncNodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HeadscaleService_ListNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListNodesRequest)
 	if err := dec(in); err != nil {
@@ -962,6 +996,10 @@ var HeadscaleService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RenameNode",
 			Handler:    _HeadscaleService_RenameNode_Handler,
+		},
+		{
+			MethodName: "SyncNode",
+			Handler:    _HeadscaleService_SyncNode_Handler,
 		},
 		{
 			MethodName: "ListNodes",

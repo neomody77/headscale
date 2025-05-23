@@ -91,6 +91,10 @@ message RenameNodeRequest {
   string new_name = 2;
 }
 
+message SyncNodeRequest { uint64 node_id = 1; }
+
+message SyncNodeResponse { Node node = 1; }
+
 message RenameNodeResponse { Node node = 1; }
 
 message ListNodesRequest { string user = 1; }

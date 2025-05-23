@@ -427,6 +427,37 @@
         ]
       }
     },
+    "/api/v1/node/{nodeId}/sync": {
+      "post": {
+        "operationId": "HeadscaleService_SyncNode",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1SyncNodeResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "HeadscaleService"
+        ]
+      }
+    },
     "/api/v1/node/{nodeId}/tags": {
       "post": {
         "operationId": "HeadscaleService_SetTags",
@@ -1303,6 +1334,14 @@
       }
     },
     "v1SetTagsResponse": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "$ref": "#/definitions/v1Node"
+        }
+      }
+    },
+    "v1SyncNodeResponse": {
       "type": "object",
       "properties": {
         "node": {

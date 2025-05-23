@@ -117,6 +117,12 @@ service HeadscaleService {
     };
   }
 
+  rpc SyncNode(SyncNodeRequest) returns (SyncNodeResponse) {
+    option (google.api.http) = {
+      post : "/api/v1/node/{node_id}/sync"
+    };
+  }
+
   rpc ListNodes(ListNodesRequest) returns (ListNodesResponse) {
     option (google.api.http) = {
       get : "/api/v1/node"

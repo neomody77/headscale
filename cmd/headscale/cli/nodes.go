@@ -25,10 +25,16 @@ func init() {
 	listNodesCmd.Flags().BoolP("tags", "t", false, "Show tags")
 
 	listNodesCmd.Flags().StringP("namespace", "n", "", "User")
+	listNodesCmd.Flags().Uint64P("identifier", "i", 0, "Node identifier (ID)")
 	listNodesNamespaceFlag := listNodesCmd.Flags().Lookup("namespace")
 	listNodesNamespaceFlag.Deprecated = deprecateNamespaceMessage
 	listNodesNamespaceFlag.Hidden = true
 	nodeCmd.AddCommand(listNodesCmd)
+
+	syncNodesCmd.Flags().StringP("user", "u", "", "Filter by user")
+	syncNodesCmd.Flags().BoolP("tags", "t", false, "Show tags")
+	syncNodesCmd.Flags().Uint64P("identifier", "i", 0, "Node identifier (ID)")
+	nodeCmd.AddCommand(syncNodesCmd)
 
 	listNodeRoutesCmd.Flags().Uint64P("identifier", "i", 0, "Node identifier (ID)")
 	nodeCmd.AddCommand(listNodeRoutesCmd)
@@ -172,33 +178,51 @@ var listNodesCmd = &cobra.Command{
 			ErrorOutput(err, fmt.Sprintf("Error getting tags flag: %s", err), output)
 		}
 
+		nodeId, err := cmd.Flags().GetUint64("identifier")
+
 		ctx, client, conn, cancel := newHeadscaleCLIWithConfig()
 		defer cancel()
 		defer conn.Close()
 
-		request := &v1.ListNodesRequest{
-			User: user,
-		}
+		var nodes []*v1.Node
 
-		response, err := client.ListNodes(ctx, request)
-		if err != nil {
-			ErrorOutput(
-				err,
-				fmt.Sprintf("Cannot get nodes: %s", status.Convert(err).Message()),
-				output,
-			)
+		if nodeId != 0 {
+			request := &v1.GetNodeRequest{
+				NodeId: nodeId,
+			}
+
+			response, _ := client.GetNode(ctx, request)
+			nodes = []*v1.Node{response.GetNode()}
+		} else {
+			request := &v1.ListNodesRequest{
+				User: user,
+			}
+
+			response, err := client.ListNodes(ctx, request)
+			if err != nil {
+				ErrorOutput(
+					err,
+					fmt.Sprintf("Cannot get nodes: %s", status.Convert(err).Message()),
+					output,
+				)
+			}
+			nodes = response.GetNodes()
 		}
 
 		if output != "" {
-			SuccessOutput(response.GetNodes(), "", output)
+			SuccessOutput(nodes, "", output)
 		}
 
-		tableData, err := nodesToPtables(user, showTags, response.GetNodes())
+		tableData, err := nodesToPtables(user, showTags, nodes)
 		if err != nil {
 			ErrorOutput(err, fmt.Sprintf("Error converting to table: %s", err), output)
 		}
 
-		err = pterm.DefaultTable.WithHasHeader().WithData(tableData).Render()
+		err = pterm.DefaultTable.WithHasHeader().
+			WithHeaderRowSeparator("═").
+			WithRowSeparator("─").
+			WithRowSeparatorStyle(pterm.NewStyle(pterm.FgLightBlue)).
+			WithData(tableData).Render()
 		if err != nil {
 			ErrorOutput(
 				err,
@@ -206,6 +230,67 @@ var listNodesCmd = &cobra.Command{
 				output,
 			)
 		}
+	},
+}
+
+var syncNodesCmd = &cobra.Command{
+	Use:     "sync",
+	Short:   "sync nodes",
+	Aliases: []string{},
+	Run: func(cmd *cobra.Command, args []string) {
+		output, _ := cmd.Flags().GetString("output")
+		user, err := cmd.Flags().GetString("user")
+		nodeId, err := cmd.Flags().GetUint64("identifier")
+		if err != nil {
+			ErrorOutput(err, fmt.Sprintf("Error getting user: %s", err), output)
+		}
+		if err != nil {
+			ErrorOutput(err, fmt.Sprintf("Error getting tags flag: %s", err), output)
+		}
+
+		fmt.Println("nodeId", nodeId)
+
+		ctx, client, conn, cancel := newHeadscaleCLIWithConfig()
+		defer cancel()
+		defer conn.Close()
+
+		var nodes []*v1.Node
+		if nodeId != 0 {
+			nodes = append(nodes, &v1.Node{Id: nodeId})
+		} else {
+			request := &v1.ListNodesRequest{
+				User: user,
+			}
+
+			response, err := client.ListNodes(ctx, request)
+			if err != nil {
+				ErrorOutput(
+					err,
+					fmt.Sprintf("Cannot get nodes: %s", status.Convert(err).Message()),
+					output,
+				)
+			}
+
+			nodes = response.GetNodes()
+		}
+
+		var newNodes []*v1.Node
+		for _, node := range nodes {
+			fmt.Println("syncing node", node.GetId())
+			nodeResp, _ := client.SyncNode(ctx, &v1.SyncNodeRequest{NodeId: node.GetId()})
+			newNodes = append(newNodes, nodeResp.GetNode())
+		}
+
+		tableData, err := nodesToPtables(user, false, newNodes)
+		if err != nil {
+			ErrorOutput(err, fmt.Sprintf("Error converting to table: %s", err), output)
+		}
+
+		err = pterm.DefaultTable.WithHasHeader().
+			WithHeaderRowSeparator("═").
+			WithRowSeparator("─").
+			WithRowSeparatorStyle(pterm.NewStyle(pterm.FgLightBlue)).
+			WithData(tableData).Render()
 	},
 }
 
@@ -690,13 +775,16 @@ func nodesToPtables(
 			user = pterm.LightYellow(node.GetUser().GetName())
 		}
 
-		var IPV4Address string
-		var IPV6Address string
+		//var IPV4Address string = ""
+		//var IPV6Address string = ""
+		var ipv4s, ipv6s []string
 		for _, addr := range node.GetIpAddresses() {
 			if netip.MustParseAddr(addr).Is4() {
-				IPV4Address = addr
+				//IPV4Address = addr
+				ipv4s = append(ipv4s, addr)
 			} else {
-				IPV6Address = addr
+				//IPV6Address = addr
+				ipv6s = append(ipv6s, addr)
 			}
 		}
 
@@ -707,7 +795,7 @@ func nodesToPtables(
 			machineKey.ShortString(),
 			nodeKey.ShortString(),
 			user,
-			strings.Join([]string{IPV4Address, IPV6Address}, ", "),
+			strings.Join(append(ipv4s, ipv6s...), "\n"), //strings.Join([]string{IPV4Address, IPV6Address}, ", "),
 			strconv.FormatBool(ephemeral),
 			lastSeenTime,
 			expiryTime,
