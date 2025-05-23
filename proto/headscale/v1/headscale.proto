@@ -78,6 +78,18 @@ service HeadscaleService {
     };
   }
 
+  rpc AddNodeIp(AddNodeIpRequest) returns (AddNodeIpResponse) {
+    option (google.api.http) = {
+      post : "/api/v1/node/{node_id}/{ip_address}"
+    };
+  }
+
+  rpc DeleteNodeIp(DeleteNodeIpRequest) returns (DeleteNodeIpResponse) {
+    option (google.api.http) = {
+      delete : "/api/v1/node/{node_id}/{ip_address}"
+    };
+  }
+
   rpc SetTags(SetTagsRequest) returns (SetTagsResponse) {
     option (google.api.http) = {
       post : "/api/v1/node/{node_id}/tags"

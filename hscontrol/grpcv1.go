@@ -519,6 +519,93 @@ func (api headscaleV1APIServer) SyncNode(
 	return &v1.SyncNodeResponse{Node: node.Proto()}, nil
 }
 
+func (api headscaleV1APIServer) AddNodeIp(
+	ctx context.Context,
+	request *v1.AddNodeIpRequest,
+) (*v1.AddNodeIpResponse, error) {
+
+	node, err := api.h.db.GetNodeByID(types.NodeID(request.GetNodeId()))
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = types.NotifyCtx(context.Background(), "node updated", node.Hostname)
+	ip, err := netip.ParseAddr(request.GetIpAddress())
+	if err != nil {
+		return nil, fmt.Errorf("parsing address: %w", err)
+	}
+	api.h.ipAlloc, err = db.NewIPAllocator(api.h.db, api.h.cfg.PrefixV4, api.h.cfg.PrefixV6, api.h.cfg.IPAllocation)
+	if ip.Is4() {
+		node.IPv4s = append(node.IPv4s, &ip)
+	} else {
+		node.IPv6s = append(node.IPv6s, &ip)
+	}
+	// TODO: error handling
+	_ = db.NodeSave(api.h.db.DB, node)
+	fmt.Println("node.IPv4s", node.IPv4s)
+	api.h.nodeNotifier.NotifyByNodeID(ctx, types.UpdatePeerChanged(node.ID), node.ID)
+	return &v1.AddNodeIpResponse{Node: node.Proto()}, nil
+}
+
+// DeleteNodeIp removes an IPv4 or IPv6 address from the given node.
+func (api headscaleV1APIServer) DeleteNodeIp(
+	ctx context.Context,
+	req *v1.DeleteNodeIpRequest,
+) (*v1.DeleteNodeIpResponse, error) {
+
+	// 1. 读取节点
+	node, err := api.h.db.GetNodeByID(types.NodeID(req.GetNodeId()))
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 解析 IP
+	ip, err := netip.ParseAddr(req.GetIpAddress())
+	if err != nil {
+		return nil, fmt.Errorf("parsing address: %w", err)
+	}
+
+	// 3. 在对应切片中过滤
+	var (
+		removed bool
+		v4s     []*netip.Addr
+		v6s     []*netip.Addr
+	)
+	if ip.Is4() {
+		for _, p := range node.IPv4s {
+			if p != nil && *p == ip {
+				removed = true
+				continue
+			}
+			v4s = append(v4s, p)
+		}
+		if !removed {
+			return nil, status.Error(codes.NotFound, "ip not found on node")
+		}
+		node.IPv4s = v4s
+	} else {
+		for _, p := range node.IPv6s {
+			if p != nil && *p == ip {
+				removed = true
+				continue
+			}
+			v6s = append(v6s, p)
+		}
+		if !removed {
+			return nil, status.Error(codes.NotFound, "ip not found on node")
+		}
+		node.IPv6s = v6s
+	}
+
+	// 4. 保存并通知
+	_ = db.NodeSave(api.h.db.DB, node) // TODO: handle error
+	ctx = types.NotifyCtx(context.Background(), "node updated", node.Hostname)
+	api.h.nodeNotifier.NotifyByNodeID(ctx, types.UpdatePeerChanged(node.ID), node.ID)
+
+	// 5. 返回
+	return &v1.DeleteNodeIpResponse{Node: node.Proto()}, nil
+}
+
 func (api headscaleV1APIServer) ListNodes(
 	ctx context.Context,
 	request *v1.ListNodesRequest,

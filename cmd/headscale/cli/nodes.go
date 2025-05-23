@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"google.golang.org/grpc"
 	"log"
 	"net/netip"
 	"slices"
@@ -30,6 +31,14 @@ func init() {
 	listNodesNamespaceFlag.Deprecated = deprecateNamespaceMessage
 	listNodesNamespaceFlag.Hidden = true
 	nodeCmd.AddCommand(listNodesCmd)
+
+	addNodeIpCmd.Flags().Uint64P("identifier", "i", 0, "Node identifier (ID)")
+	addNodeIpCmd.Flags().StringP("ip", "I", "", "IP address to add")
+	nodeCmd.AddCommand(addNodeIpCmd)
+
+	deleteNodeIpCmd.Flags().Uint64P("identifier", "i", 0, "Node identifier (ID)")
+	deleteNodeIpCmd.Flags().StringP("ip", "I", "", "IP address to add")
+	nodeCmd.AddCommand(deleteNodeIpCmd)
 
 	syncNodesCmd.Flags().StringP("user", "u", "", "Filter by user")
 	syncNodesCmd.Flags().BoolP("tags", "t", false, "Show tags")
@@ -230,6 +239,54 @@ var listNodesCmd = &cobra.Command{
 				output,
 			)
 		}
+	},
+}
+
+var addNodeIpCmd = &cobra.Command{
+	Use:     "addip",
+	Short:   "add node ip",
+	Aliases: []string{},
+	Run: func(cmd *cobra.Command, args []string) {
+		nodeId, _ := cmd.Flags().GetUint64("identifier")
+		ip, _ := cmd.Flags().GetString("ip")
+		ctx, client, conn, cancel := newHeadscaleCLIWithConfig()
+		defer cancel()
+		defer func(conn *grpc.ClientConn) {
+			_ = conn.Close()
+		}(conn)
+
+		request := &v1.AddNodeIpRequest{
+			NodeId:    nodeId,
+			IpAddress: ip,
+		}
+		fmt.Println("ip:", ip, "nodeId:", nodeId)
+		response, _ := client.AddNodeIp(ctx, request)
+		node := response.Node
+		_, _ = nodeRoutesToPtables([]*v1.Node{node})
+	},
+}
+
+var deleteNodeIpCmd = &cobra.Command{
+	Use:     "delip",
+	Short:   "delete node ip",
+	Aliases: []string{},
+	Run: func(cmd *cobra.Command, args []string) {
+		nodeId, _ := cmd.Flags().GetUint64("identifier")
+		ip, _ := cmd.Flags().GetString("ip")
+		ctx, client, conn, cancel := newHeadscaleCLIWithConfig()
+		defer cancel()
+		defer func(conn *grpc.ClientConn) {
+			_ = conn.Close()
+		}(conn)
+
+		request := &v1.DeleteNodeIpRequest{
+			NodeId:    nodeId,
+			IpAddress: ip,
+		}
+		fmt.Println("ip:", ip, "nodeId:", nodeId)
+		response, _ := client.DeleteNodeIp(ctx, request)
+		node := response.Node
+		_, _ = nodeRoutesToPtables([]*v1.Node{node})
 	},
 }
 

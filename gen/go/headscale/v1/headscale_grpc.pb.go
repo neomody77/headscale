@@ -28,6 +28,8 @@ const (
 	HeadscaleService_ListPreAuthKeys_FullMethodName   = "/headscale.v1.HeadscaleService/ListPreAuthKeys"
 	HeadscaleService_DebugCreateNode_FullMethodName   = "/headscale.v1.HeadscaleService/DebugCreateNode"
 	HeadscaleService_GetNode_FullMethodName           = "/headscale.v1.HeadscaleService/GetNode"
+	HeadscaleService_AddNodeIp_FullMethodName         = "/headscale.v1.HeadscaleService/AddNodeIp"
+	HeadscaleService_DeleteNodeIp_FullMethodName      = "/headscale.v1.HeadscaleService/DeleteNodeIp"
 	HeadscaleService_SetTags_FullMethodName           = "/headscale.v1.HeadscaleService/SetTags"
 	HeadscaleService_SetApprovedRoutes_FullMethodName = "/headscale.v1.HeadscaleService/SetApprovedRoutes"
 	HeadscaleService_RegisterNode_FullMethodName      = "/headscale.v1.HeadscaleService/RegisterNode"
@@ -62,6 +64,8 @@ type HeadscaleServiceClient interface {
 	// --- Node start ---
 	DebugCreateNode(ctx context.Context, in *DebugCreateNodeRequest, opts ...grpc.CallOption) (*DebugCreateNodeResponse, error)
 	GetNode(ctx context.Context, in *GetNodeRequest, opts ...grpc.CallOption) (*GetNodeResponse, error)
+	AddNodeIp(ctx context.Context, in *AddNodeIpRequest, opts ...grpc.CallOption) (*AddNodeIpResponse, error)
+	DeleteNodeIp(ctx context.Context, in *DeleteNodeIpRequest, opts ...grpc.CallOption) (*DeleteNodeIpResponse, error)
 	SetTags(ctx context.Context, in *SetTagsRequest, opts ...grpc.CallOption) (*SetTagsResponse, error)
 	SetApprovedRoutes(ctx context.Context, in *SetApprovedRoutesRequest, opts ...grpc.CallOption) (*SetApprovedRoutesResponse, error)
 	RegisterNode(ctx context.Context, in *RegisterNodeRequest, opts ...grpc.CallOption) (*RegisterNodeResponse, error)
@@ -174,6 +178,26 @@ func (c *headscaleServiceClient) GetNode(ctx context.Context, in *GetNodeRequest
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetNodeResponse)
 	err := c.cc.Invoke(ctx, HeadscaleService_GetNode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *headscaleServiceClient) AddNodeIp(ctx context.Context, in *AddNodeIpRequest, opts ...grpc.CallOption) (*AddNodeIpResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddNodeIpResponse)
+	err := c.cc.Invoke(ctx, HeadscaleService_AddNodeIp_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *headscaleServiceClient) DeleteNodeIp(ctx context.Context, in *DeleteNodeIpRequest, opts ...grpc.CallOption) (*DeleteNodeIpResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteNodeIpResponse)
+	err := c.cc.Invoke(ctx, HeadscaleService_DeleteNodeIp_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -356,6 +380,8 @@ type HeadscaleServiceServer interface {
 	// --- Node start ---
 	DebugCreateNode(context.Context, *DebugCreateNodeRequest) (*DebugCreateNodeResponse, error)
 	GetNode(context.Context, *GetNodeRequest) (*GetNodeResponse, error)
+	AddNodeIp(context.Context, *AddNodeIpRequest) (*AddNodeIpResponse, error)
+	DeleteNodeIp(context.Context, *DeleteNodeIpRequest) (*DeleteNodeIpResponse, error)
 	SetTags(context.Context, *SetTagsRequest) (*SetTagsResponse, error)
 	SetApprovedRoutes(context.Context, *SetApprovedRoutesRequest) (*SetApprovedRoutesResponse, error)
 	RegisterNode(context.Context, *RegisterNodeRequest) (*RegisterNodeResponse, error)
@@ -410,6 +436,12 @@ func (UnimplementedHeadscaleServiceServer) DebugCreateNode(context.Context, *Deb
 }
 func (UnimplementedHeadscaleServiceServer) GetNode(context.Context, *GetNodeRequest) (*GetNodeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNode not implemented")
+}
+func (UnimplementedHeadscaleServiceServer) AddNodeIp(context.Context, *AddNodeIpRequest) (*AddNodeIpResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddNodeIp not implemented")
+}
+func (UnimplementedHeadscaleServiceServer) DeleteNodeIp(context.Context, *DeleteNodeIpRequest) (*DeleteNodeIpResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteNodeIp not implemented")
 }
 func (UnimplementedHeadscaleServiceServer) SetTags(context.Context, *SetTagsRequest) (*SetTagsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetTags not implemented")
@@ -638,6 +670,42 @@ func _HeadscaleService_GetNode_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HeadscaleServiceServer).GetNode(ctx, req.(*GetNodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HeadscaleService_AddNodeIp_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddNodeIpRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HeadscaleServiceServer).AddNodeIp(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HeadscaleService_AddNodeIp_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HeadscaleServiceServer).AddNodeIp(ctx, req.(*AddNodeIpRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HeadscaleService_DeleteNodeIp_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteNodeIpRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HeadscaleServiceServer).DeleteNodeIp(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HeadscaleService_DeleteNodeIp_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HeadscaleServiceServer).DeleteNodeIp(ctx, req.(*DeleteNodeIpRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -972,6 +1040,14 @@ var HeadscaleService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetNode",
 			Handler:    _HeadscaleService_GetNode_Handler,
+		},
+		{
+			MethodName: "AddNodeIp",
+			Handler:    _HeadscaleService_AddNodeIp_Handler,
+		},
+		{
+			MethodName: "DeleteNodeIp",
+			Handler:    _HeadscaleService_DeleteNodeIp_Handler,
 		},
 		{
 			MethodName: "SetTags",
